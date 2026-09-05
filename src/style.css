@@ -31,3 +31,11 @@ header,.intro,.telemetry,.view-controls,.view-hint,footer{z-index:2}
 .milestones{margin-right:calc(8px + var(--timeline-tail,90px))}
 #timeline{margin-top:calc(23px + var(--timeline-top-space,0px))}
 .milestones button.above .milestone-pin{top:100%;height:8px}
+
+#detailed{font-size:8px;letter-spacing:0;padding:4px 6px;border:1px solid #ffffff25;border-radius:4px;color:var(--muted);margin:-4px 0}
+#detailed[hidden]{display:none}
+#detailed[aria-pressed=true]{color:var(--accent);border-color:var(--accent);background:#e2a47210}
+.telemetry[data-detailed=true] .metric strong{font-size:26px}
+.telemetry[data-detailed=true] .compact strong{font-size:11px;letter-spacing:0}
+.telemetry:has(#detailed:not([hidden])) .live-dot{display:none}
+@media(max-width:640px){.telemetry[data-detailed=true] .metric strong{font-size:18px}#detailed{font-size:7px;padding:3px}.telemetry:has(#detailed:not([hidden])) .panel-heading{flex-wrap:wrap;gap:10px}}

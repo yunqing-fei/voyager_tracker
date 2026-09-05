@@ -6,7 +6,7 @@ import {AU,DAY,toJD,fromJD,stateAt} from './ephemeris.js';
 const $=s=>document.querySelector(s);
 const bodies=[['mercury',2439.7,0xaaa49c],['venus',6051.8,0xd7b782],['earth',6371,0x567dae],['mars',3389.5,0xb87850],['jupiter',69911,0xc5ae93],['saturn',58232,0xcabb94],['uranus',25362,0x8ecbd2],['neptune',24622,0x477acf]];
 const events={launch:['1977-09-06T00:00:00Z','01','DEPARTURE FROM EARTH','A small beginning.','earth'],jupiter:['1979-03-05T10:00:00Z','02','THE JUPITER ENCOUNTER','A little help from gravity.','jupiter'],saturn:['1980-11-12T23:00:00Z','03','THE SATURN ENCOUNTER','A turn toward the unknown.','saturn'],portrait:['1990-02-14T00:00:00Z','04','THE FAMILY PORTRAIT','Everything we have ever known.','earth'],interstellar:['2012-08-25T00:00:00Z','05','INTERSTELLAR SPACE','Beyond the solar wind.','sun'],today:['2026-09-05T00:00:00Z','06','THE JOURNEY CONTINUES','Still carrying our story.','sun']};
-let data={},jd=toJD(events.jupiter[0]),minJD,maxJD,live=false,playing=true,rate=3600,view='ride',target='jupiter',yaw=0,pitch=0,zoom=55,orbitDistance=19,mapDistance=1500,labels=true,trueScale=true,lastStamp=0,lastUI=0;
+let data={},jd=toJD(events.jupiter[0]),minJD,maxJD,live=false,detailed=false,playing=true,rate=3600,view='ride',target='jupiter',yaw=0,pitch=0,zoom=55,orbitDistance=19,mapDistance=1500,labels=true,trueScale=true,lastStamp=0,lastUI=0;
 let renderer;
 try{renderer=new T.WebGLRenderer({canvas:$('#universe'),antialias:true,logarithmicDepthBuffer:true});}catch(e){$('#loading-message').textContent='This experience requires WebGL. Enable hardware acceleration and reload.';throw e;}
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setClearColor(0x070a0e);renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.3;
@@ -45,6 +45,12 @@ function recenter(){yaw=0;pitch=0;zoom=55;camera.fov=zoom;camera.updateProjectio
 function timelineEnd(){return Math.min(maxJD,liveJulianDate());}
 function eventDate(key){return key==='today'?timelineEnd():toJD(events[key][0]);}
 function syncPlaybackControls(){
+ const canDetail=rate===1||rate===600;
+ if(!canDetail)detailed=false;
+ $('#detailed').hidden=!canDetail;
+ $('#detailed').setAttribute('aria-pressed',String(detailed));
+ $('.telemetry').dataset.detailed=String(detailed);
+
  $('#play').textContent=playing?'Ⅱ':'▶';
  $('#play').setAttribute('aria-label',playing?'Pause simulation':'Play simulation');
  $('#rate').value=String(rate);$('#rate').disabled=live;
@@ -88,7 +94,7 @@ function updatePositions(){shipState=stateAt(data.voyager.rows,jd);const origin=
   else occupied.push(r);
  }
 }
-function renderUI(){if(!shipState)return;const speed=Math.hypot(...shipState.v),dist=Math.hypot(...shipState.p)/AU;$('#velocity').textContent=speed.toFixed(2);$('#distance').textContent=dist.toFixed(3);const earth=currentStates.earth.p;$('#lighttime').textContent=(Math.hypot(...shipState.p.map((p,i)=>p-earth[i]))/299792.458/3600).toFixed(2)+' h';const heading=(Math.atan2(shipState.v[1],shipState.v[0])*180/Math.PI+360)%360;const lat=Math.asin(shipState.v[2]/speed)*180/Math.PI;$('#heading').textContent=heading.toFixed(1)+'° / '+lat.toFixed(1)+'°';$('#coordinates').textContent=shipState.p.map((p,i)=>'XYZ'[i]+' '+(p>=0?'+':'')+(p/AU).toFixed(5)).join('\n');$('#coordinates').style.whiteSpace='pre-line';$('#date').textContent=fromJD(jd).toISOString().replace('T',' · ').slice(0,21);$('#timeline').value=(jd-minJD)/(timelineEnd()-minJD)*10000;const elapsed=Number($('#timeline').value)/10000;const trackWidth=$('#timeline').clientWidth;$('#timeline').style.setProperty('--elapsed',`${elapsed<=0?0:elapsed>=1?trackWidth:8+elapsed*(trackWidth-16)}px`);updateChapter();
+function renderUI(){if(!shipState)return;const extra=detailed&&(rate===1||rate===600)?2:0;const speed=Math.hypot(...shipState.v),dist=Math.hypot(...shipState.p)/AU;$('#velocity').textContent=speed.toFixed(2+extra);$('#distance').textContent=dist.toFixed(3+extra);const earth=currentStates.earth.p;$('#lighttime').textContent=(Math.hypot(...shipState.p.map((p,i)=>p-earth[i]))/299792.458/3600).toFixed(2+extra)+' h';const heading=(Math.atan2(shipState.v[1],shipState.v[0])*180/Math.PI+360)%360;const lat=Math.asin(shipState.v[2]/speed)*180/Math.PI;$('#heading').textContent=heading.toFixed(1+extra)+'° / '+lat.toFixed(1+extra)+'°';$('#coordinates').textContent=shipState.p.map((p,i)=>'XYZ'[i]+' '+(p>=0?'+':'')+(p/AU).toFixed(5)).join('\n');$('#coordinates').style.whiteSpace='pre-line';$('#date').textContent=fromJD(jd).toISOString().replace('T',' · ').slice(0,21);$('#timeline').value=(jd-minJD)/(timelineEnd()-minJD)*10000;const elapsed=Number($('#timeline').value)/10000;const trackWidth=$('#timeline').clientWidth;$('#timeline').style.setProperty('--elapsed',`${elapsed<=0?0:elapsed>=1?trackWidth:8+elapsed*(trackWidth-16)}px`);updateChapter();
  const c=$('#speed-chart').getContext('2d'),w=440,h=90,pad=5;c.clearRect(0,0,w,h);
  const range=chartWindow(jd,minJD,timelineEnd(),jd<toJD('1981-01-01')?6:365);
  const speeds=Array.from({length:100},(_,i)=>Math.hypot(...stateAt(data.voyager.rows,range.start+i/99*(range.end-range.start)).v));
@@ -125,6 +131,7 @@ function layoutMilestones(){
 }
 function resize(){renderer.setSize($('#app').clientWidth,$('#app').clientHeight,false);camera.aspect=$('#app').clientWidth/$('#app').clientHeight;camera.updateProjectionMatrix();layoutMilestones();}addEventListener('resize',resize);resize();
 let dragging=false,px=0,py=0;const canvas=$('#universe');canvas.addEventListener('pointerdown',e=>{dragging=true;px=e.clientX;py=e.clientY;canvas.setPointerCapture(e.pointerId);canvas.style.cursor='grabbing';});canvas.addEventListener('pointermove',e=>{if(!dragging)return;yaw-=(e.clientX-px)*.004;pitch=Math.max(-1.3,Math.min(1.3,pitch-(e.clientY-py)*.004));px=e.clientX;py=e.clientY;});function release(){dragging=false;canvas.style.cursor='grab';}canvas.addEventListener('pointerup',release);canvas.addEventListener('pointercancel',release);canvas.addEventListener('wheel',e=>{e.preventDefault();if(view==='ride'){zoom=Math.max(15,Math.min(95,zoom+e.deltaY*.035));camera.fov=zoom;camera.updateProjectionMatrix();}else if(view==='craft')orbitDistance=Math.max(5,Math.min(60,orbitDistance*Math.exp(e.deltaY*.001)));else mapDistance=Math.max(10,Math.min(8000,mapDistance*Math.exp(e.deltaY*.001)));},{passive:false});
+$('#detailed').onclick=()=>{detailed=!detailed;syncPlaybackControls();renderUI();};
 function togglePlay(){playing=!playing;if(!playing)live=false;syncPlaybackControls();}$('#play').onclick=togglePlay;addEventListener('keydown',e=>{if(e.code==='Space'&&!['INPUT','SELECT','BUTTON'].includes(document.activeElement.tagName)&&!$('#info').open){e.preventDefault();togglePlay();}});
 $('#rate').onchange=e=>{rate=Number(e.target.value);live=false;syncPlaybackControls();};
 $('#timeline').oninput=e=>{const fraction=Number(e.target.value)/10000;jd=minJD+fraction*(timelineEnd()-minJD);live=fraction===1;if(live){playing=true;rate=1;}syncPlaybackControls();updatePositions();renderUI();};
