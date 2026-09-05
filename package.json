@@ -1,0 +1,1 @@
+{"name":"voyager-flight","version":"1.0.0","private":true,"type":"module","scripts":{"dev":"vite --host 127.0.0.1","build":"vite build","test":"node --test tests/*.test.js","data":"python3 scripts/fetch_ephemeris.py"},"dependencies":{"three":"^0.180.0"},"devDependencies":{"vite":"^8.0.13"}}
