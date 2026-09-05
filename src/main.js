@@ -69,7 +69,13 @@ function updatePositions(){shipState=stateAt(data.voyager.rows,jd);const origin=
  if(view==='ride'){camera.position.copy(new T.Vector3(.1,.95,2.6).applyQuaternion(spacecraft.quaternion));const direction=(target==='velocity'?V(shipState.v):target==='sun'?sunVector:V(currentStates[target].p).sub(origin)).normalize();const basis=new T.Quaternion().setFromRotationMatrix(new T.Matrix4().lookAt(new T.Vector3(),direction,new T.Vector3(0,1,0)));camera.quaternion.copy(basis).multiply(new T.Quaternion().setFromEuler(new T.Euler(pitch,yaw,0,'YXZ')));}
  else if(view==='craft'){const offset=new T.Vector3(Math.sin(yaw+.65)*Math.cos(pitch+.28),Math.sin(pitch+.28),Math.cos(yaw+.65)*Math.cos(pitch+.28)).multiplyScalar(orbitDistance);camera.position.copy(offset);camera.lookAt(-1.7,-.2,0);}
  else{const center=new T.Vector3();camera.position.set(Math.sin(yaw+.15)*Math.cos(pitch+.9)*mapDistance,Math.sin(pitch+.9)*mapDistance,Math.cos(yaw+.15)*Math.cos(pitch+.9)*mapDistance);camera.lookAt(center);}
- stars.position.copy(camera.position);camera.updateMatrixWorld();sunGlow.position.copy(sun.position);sunGlow.scale.setScalar(sun.scale.x*14);const sp=shipDot.position.clone().project(camera);shipLabel.hidden=view!=='map'||!labels||Math.abs(sp.x)>.95||Math.abs(sp.y)>.8;shipLabel.style.left=(sp.x*.5+.5)*renderer.domElement.clientWidth+'px';shipLabel.style.top=(-sp.y*.5+.5)*$('#app').clientHeight+'px';for(const track of trailRefs){let lo=0,hi=track.rows.length;while(lo<hi){let m=(lo+hi)>>1;if(track.rows[m][0]<=jd)lo=m+1;else hi=m;}const end=lo;lo=0;hi=end;const startJD=jd-track.period;while(lo<hi){let m=(lo+hi)>>1;if(track.rows[m][0]<startJD)lo=m+1;else hi=m;}track.line.geometry.setDrawRange(lo,Math.max(0,end-lo));}
+ stars.position.copy(camera.position);camera.updateMatrixWorld();sunGlow.position.copy(sun.position);const observerDistanceAU=view==='map'?camera.position.distanceTo(sun.position)/20:sunDist/AU;
+ const pixelWorld=2*camera.position.distanceTo(sun.position)*Math.tan(T.MathUtils.degToRad(camera.fov/2))/renderer.domElement.clientHeight;
+ // Exposure-adapted glare keeps an unresolved bright source visible. The
+ // sphere retains its physical angular diameter; this halo is not its edge.
+ const glarePixels=76/Math.pow(Math.max(observerDistanceAU,.01),.3)*(55/camera.fov);
+ sunGlow.scale.setScalar(Math.max(sun.scale.x*14,pixelWorld*glarePixels));
+ sunGlow.material.opacity=1/(1+.22*Math.log1p(observerDistanceAU));const sp=shipDot.position.clone().project(camera);shipLabel.hidden=view!=='map'||!labels||Math.abs(sp.x)>.95||Math.abs(sp.y)>.8;shipLabel.style.left=(sp.x*.5+.5)*renderer.domElement.clientWidth+'px';shipLabel.style.top=(-sp.y*.5+.5)*$('#app').clientHeight+'px';for(const track of trailRefs){let lo=0,hi=track.rows.length;while(lo<hi){let m=(lo+hi)>>1;if(track.rows[m][0]<=jd)lo=m+1;else hi=m;}const end=lo;lo=0;hi=end;const startJD=jd-track.period;while(lo<hi){let m=(lo+hi)>>1;if(track.rows[m][0]<startJD)lo=m+1;else hi=m;}track.line.geometry.setDrawRange(lo,Math.max(0,end-lo));}
  for(const [name] of [...bodies,['sun']]){const m=name==='sun'?sun:planetMeshes[name],p=m.position.clone().project(camera),el=$('#label-'+name);const front=m.position.clone().sub(camera.position).dot(camera.getWorldDirection(new T.Vector3()))>0;el.hidden=!labels||!front||Math.abs(p.x)>.94||Math.abs(p.y)>.85;el.style.left=(p.x*.5+.5)*renderer.domElement.clientWidth+'px';el.style.top=(-p.y*.5+.5)*$('#app').clientHeight+'px';}
  // Keep the selected body's name legible when distant inner planets cluster.
  const occupied=[];
@@ -98,7 +104,7 @@ function renderUI(){if(!shipState)return;const speed=Math.hypot(...shipState.v),
 function layoutMilestones(){
  if(!Number.isFinite(minJD)||!Number.isFinite(maxJD))return;
  $('#app').style.setProperty('--timeline-tail',`${$('[data-event=today]').getBoundingClientRect().width}px`);
- const track=$('.milestones'),width=track.clientWidth,rowEnds=[];
+ const track=$('.milestones'),width=track.clientWidth,rowEnds=[];let hasAbove=false;
  for(const button of track.querySelectorAll('[data-event]')){
   const fraction=Math.max(0,Math.min(1,(eventDate(button.dataset.event)-minJD)/(timelineEnd()-minJD)));
   const x=fraction*width,w=button.getBoundingClientRect().width;
@@ -106,11 +112,14 @@ function layoutMilestones(){
   const left=x+shift;
   let row=rowEnds.findIndex(end=>left>=end+4);
   if(row<0)row=rowEnds.length;
-  rowEnds[row]=left+w;
+  const above=button.dataset.event==='jupiter'&&row>0;
+  button.classList.toggle('above',above);
+  if(above)hasAbove=true;else rowEnds[row]=left+w;
   button.style.left=`${fraction*100}%`;
   button.style.setProperty('--shift',`${shift}px`);
-  button.style.setProperty('--row-offset',`${row*38}px`);
+  button.style.setProperty('--row-offset',`${above?-52:row*38}px`);
  }
+ $('#app').style.setProperty('--timeline-top-space',hasAbove?'38px':'0px');
  track.style.height=`${Math.max(1,rowEnds.length)*38}px`;
  $('#app').style.setProperty('--footer-height',`${$('footer').offsetHeight}px`);
 }

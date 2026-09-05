@@ -29,3 +29,5 @@ header,.intro,.telemetry,.view-controls,.view-hint,footer{z-index:2}
 /* Reserve room after the final tick so even LIVE starts at its date marker. */
 #timeline{width:calc(100% - var(--timeline-tail,90px))}
 .milestones{margin-right:calc(8px + var(--timeline-tail,90px))}
+#timeline{margin-top:calc(23px + var(--timeline-top-space,0px))}
+.milestones button.above .milestone-pin{top:100%;height:8px}
